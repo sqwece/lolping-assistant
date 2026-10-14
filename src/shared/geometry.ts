@@ -11,3 +11,20 @@ export function pickSlice(dx: number, dy: number, deadZone: number = WHEEL.inner
   const deg = ((Math.atan2(dy, dx) * 180) / Math.PI + 90 + 22.5 + 360) % 360;
   return Math.floor(deg / 45) % 8;
 }
+
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** A square capture region of `sizePx` centred on (cx, cy), clamped to stay inside width×height. */
+export function regionRect(cx: number, cy: number, sizePx: number, width: number, height: number): Rect {
+  const half = sizePx / 2;
+  const w = Math.min(sizePx, width);
+  const h = Math.min(sizePx, height);
+  const x = Math.max(0, Math.min(cx - half, width - w));
+  const y = Math.max(0, Math.min(cy - half, height - h));
+  return { x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) };
+}

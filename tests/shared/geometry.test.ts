@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WHEEL, pickSlice } from '../../src/shared/geometry';
+import { WHEEL, pickSlice, regionRect } from '../../src/shared/geometry';
 
 const at = (deg: number, r = 150) => {
   // deg measured clockwise from straight up (N), screen y points down
@@ -29,5 +29,23 @@ describe('pickSlice', () => {
   it('honours a custom dead zone', () => {
     expect(pickSlice(0, -50, 40)).toBe(0);
     expect(pickSlice(0, -30, 40)).toBe(-1);
+  });
+});
+
+describe('regionRect', () => {
+  it('centres a square on the point', () => {
+    expect(regionRect(100, 100, 40, 1000, 1000)).toEqual({ x: 80, y: 80, width: 40, height: 40 });
+  });
+
+  it('clamps to the top-left edge', () => {
+    expect(regionRect(10, 10, 40, 1000, 1000)).toEqual({ x: 0, y: 0, width: 40, height: 40 });
+  });
+
+  it('clamps to the bottom-right edge', () => {
+    expect(regionRect(995, 995, 40, 1000, 1000)).toEqual({ x: 960, y: 960, width: 40, height: 40 });
+  });
+
+  it('shrinks to the whole bounds when the region is larger than them', () => {
+    expect(regionRect(50, 50, 200, 100, 80)).toEqual({ x: 0, y: 0, width: 100, height: 80 });
   });
 });
