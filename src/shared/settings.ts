@@ -1,3 +1,4 @@
+import { isAssistantCharacter, type AssistantCharacter } from './assistant';
 import { DEFAULT_CLICK_EMOTE, DEFAULT_EMOTE_WHEEL } from './emoteCatalog';
 import {
   CUSTOM_NAME_MAX, MAX_CUSTOM_EMOTES, customHash, isCustomRef, normalizeClickEmote, normalizeEmoteWheel,
@@ -71,6 +72,18 @@ export interface Settings {
   autoUpdateCheck: boolean;
   /** The newest version already announced with a toast, as x.y.z, so each version is announced once. */
   updateNotifiedVersion: string | null;
+  /** The AI assistant answers questions about the screen where you ping. */
+  assistantEnabled: boolean;
+  /** DeepSeek API key the assistant uses. Stored in the settings file; sent only to api.deepseek.com. */
+  apiKey: string;
+  /** Model that reads the captured screen region (must accept images). */
+  visionModel: string;
+  /** Model that writes the assistant's text replies. */
+  textModel: string;
+  /** The assistant's look: 'none' draws a plain popup, anything else a character. */
+  assistantCharacter: AssistantCharacter;
+  /** Half-width of the square screen region captured around a ping, in physical pixels. */
+  regionSizePx: number;
 }
 
 /** Per-machine defaults for the room profile: the OS username and a random tag colour. */
@@ -113,6 +126,12 @@ export const DEFAULT_SETTINGS: Settings = {
   friendEmotes: true,
   autoUpdateCheck: true,
   updateNotifiedVersion: null,
+  assistantEnabled: true,
+  apiKey: '',
+  visionModel: 'deepseek-flash',
+  textModel: 'deepseek-v4-pro',
+  assistantCharacter: 'assistant',
+  regionSizePx: 800,
 };
 
 export const LIMITS = {
@@ -122,11 +141,12 @@ export const LIMITS = {
   volume: { min: 0, max: 100, step: 1 },
   incomingPingLimit: { min: 0, max: 20, step: 1 },
   emoteSizePx: { min: 80, max: 300, step: 1 },
+  regionSizePx: { min: 200, max: 1600, step: 10 },
 } as const;
 
 type NumKey = keyof typeof LIMITS;
 type BoolKey = 'enabledOnStart' | 'clickPing' | 'gameCheck' | 'muted' | 'tickSound' | 'launchAtStartup' | 'allowInternet' | 'rejoinRoom' | 'roomMuted'
-  | 'emoteClick' | 'emoteSound' | 'friendEmotes' | 'autoUpdateCheck';
+  | 'emoteClick' | 'emoteSound' | 'friendEmotes' | 'autoUpdateCheck' | 'assistantEnabled';
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isVk = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 254;
@@ -139,6 +159,10 @@ function num(raw: unknown, key: NumKey): number {
 }
 
 const bool = (raw: unknown, key: BoolKey): boolean => (typeof raw === 'boolean' ? raw : DEFAULT_SETTINGS[key]);
+
+/** A trimmed string with a length cap, or the fallback when the value isn't a string. */
+const text = (raw: unknown, fallback: string, max = 64): string =>
+  typeof raw === 'string' ? raw.trim().slice(0, max) : fallback;
 
 function triggerKey(raw: unknown, platform: Platform, fallback: TriggerKey): TriggerKey {
   if (platform === 'mac' && raw === 'capslock') return fallback;
@@ -252,6 +276,12 @@ export function normalizeSettings(raw: unknown, platform: Platform = 'win', iden
     friendEmotes: bool(r.friendEmotes, 'friendEmotes'),
     autoUpdateCheck: bool(r.autoUpdateCheck, 'autoUpdateCheck'),
     updateNotifiedVersion: isVersion(r.updateNotifiedVersion) ? r.updateNotifiedVersion : null,
+    assistantEnabled: bool(r.assistantEnabled, 'assistantEnabled'),
+    apiKey: typeof r.apiKey === 'string' ? r.apiKey.trim().slice(0, 256) : '',
+    visionModel: text(r.visionModel, DEFAULT_SETTINGS.visionModel),
+    textModel: text(r.textModel, DEFAULT_SETTINGS.textModel),
+    assistantCharacter: isAssistantCharacter(r.assistantCharacter) ? r.assistantCharacter : DEFAULT_SETTINGS.assistantCharacter,
+    regionSizePx: num(r.regionSizePx, 'regionSizePx'),
   };
 }
 

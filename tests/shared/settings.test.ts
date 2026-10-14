@@ -430,3 +430,45 @@ describe('update settings', () => {
     expect(mergeSettings(s, { updateNotifiedVersion: 'junk' }).updateNotifiedVersion).toBeNull();
   });
 });
+
+describe('assistant settings', () => {
+  it('defaults', () => {
+    const s = normalizeSettings(undefined);
+    expect(s).toMatchObject({
+      assistantEnabled: true, apiKey: '', visionModel: 'deepseek-flash', textModel: 'deepseek-v4-pro',
+      assistantCharacter: 'assistant', regionSizePx: 800,
+    });
+  });
+
+  it('assistantEnabled is kept only as a boolean', () => {
+    expect(normalizeSettings({ assistantEnabled: false }).assistantEnabled).toBe(false);
+    for (const raw of [0, 'no', null, {}]) expect(normalizeSettings({ assistantEnabled: raw }).assistantEnabled).toBe(true);
+  });
+
+  it('trims the api key and caps its length', () => {
+    expect(normalizeSettings({ apiKey: '  sk-abc  ' }).apiKey).toBe('sk-abc');
+    expect(normalizeSettings({ apiKey: 7 }).apiKey).toBe('');
+    expect(normalizeSettings({ apiKey: 'x'.repeat(300) }).apiKey).toHaveLength(256);
+  });
+
+  it('falls back when a model name is not a string, and caps its length', () => {
+    const s = normalizeSettings({ visionModel: 3, textModel: null });
+    expect(s.visionModel).toBe('deepseek-flash');
+    expect(s.textModel).toBe('deepseek-v4-pro');
+    expect(normalizeSettings({ visionModel: ' gpt-4o ' }).visionModel).toBe('gpt-4o');
+    expect(normalizeSettings({ textModel: 'x'.repeat(100) }).textModel).toHaveLength(64);
+  });
+
+  it('replaces an unknown assistant character with the default one', () => {
+    expect(normalizeSettings({ assistantCharacter: 'teemo' }).assistantCharacter).toBe('teemo');
+    expect(normalizeSettings({ assistantCharacter: 'none' }).assistantCharacter).toBe('none');
+    for (const raw of ['lulu', 7, null, {}]) expect(normalizeSettings({ assistantCharacter: raw }).assistantCharacter).toBe('assistant');
+  });
+
+  it('clamps and rounds the capture region', () => {
+    expect(normalizeSettings({ regionSizePx: 0 }).regionSizePx).toBe(200);
+    expect(normalizeSettings({ regionSizePx: 99999 }).regionSizePx).toBe(1600);
+    expect(normalizeSettings({ regionSizePx: 805 }).regionSizePx).toBe(810);
+    expect(normalizeSettings({ regionSizePx: 'big' }).regionSizePx).toBe(800);
+  });
+});
