@@ -25,6 +25,10 @@
 
 Pings and emotes show up in whole-screen capture, so friends watching your Discord or OBS stream see them too. lolPing is a desktop toy: it doesn't read, change or hook into League itself.
 
+## AI assistant
+
+This fork adds an optional **AI assistant**: ping and a small character hops to the spot, captures the square of screen around it, and answers questions about it with your own [DeepSeek](https://api.deepseek.com) API key (fill it in under Settings → Assistant). **Privacy:** the captured region is sent to `api.deepseek.com` and nothing else, and only while the assistant is on and a key is set.
+
 ## Install
 
 ### Windows

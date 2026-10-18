@@ -1,0 +1,616 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- sprite ---- */
+
+.sprite {
+  position: absolute;
+  left: calc(50% - 45px);
+  top: 95px;
+  width: 90px;
+  height: 90px;
+  will-change: transform, opacity;
+}
+
+#sprite-art {
+  width: 90px;
+  height: 90px;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35));
+}
+
+.sprite-tag {
+  position: absolute;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(20, 24, 32, 0.82);
+  color: #fff;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.sprite-tag:empty {
+  display: none;
+}
+
+/* ---- movement ---- */
+
+.sprite.enter-teleport { animation: enter-teleport 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.sprite.enter-jump { animation: enter-jump 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.sprite.enter-dash { animation: enter-dash 0.4s ease-out both; }
+.sprite.enter-fly { animation: enter-fly 0.5s ease-out both; }
+.sprite.leave { animation: leave 0.3s ease-in both; }
+
+@keyframes enter-teleport {
+  0% { opacity: 0; transform: scale(0); }
+  60% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes enter-jump {
+  0% { transform: translateY(200px); }
+  50% { transform: translateY(-50px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes enter-dash {
+  0% { transform: translateX(-280px); opacity: 0.3; filter: blur(3px); }
+  100% { transform: translateX(0); opacity: 1; filter: none; }
+}
+
+@keyframes enter-fly {
+  0% { transform: translate(-240px, -200px) scale(0.5); opacity: 0; }
+  100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+
+@keyframes leave {
+  0% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-180px) scale(0.4); }
+}
+
+/* ---- popup ---- */
+
+.popup {
+  position: absolute;
+  top: 212px;
+  left: 50%;
+  width: 440px;
+  transform: translateX(-50%) translateY(12px);
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(24, 28, 38, 0.94);
+  color: #eef1f6;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.popup.shown {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.popup-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #eef1f6;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.popup-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.popup-enlarge {
+  position: absolute;
+  top: 8px;
+  right: 40px;
+  height: 24px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #eef1f6;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.popup-enlarge:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.popup-drag {
+  height: 18px;
+  margin: -6px -6px 6px -6px;
+  cursor: grab;
+  z-index: 4;
+}
+
+.popup-drag:active {
+  cursor: grabbing;
+}
+
+.popup-thumb {
+  margin-bottom: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.popup-thumb img {
+  display: block;
+  width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+}
+
+.popup-text {
+  margin-bottom: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  user-select: text;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.popup-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #eef1f6;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.btn.primary {
+  border-color: transparent;
+  background: linear-gradient(160deg, #5b8cff, #2f6bff);
+  color: #fff;
+}
+
+.btn.primary:hover {
+  filter: brightness(1.08);
+}
+
+/* ---- chat ---- */
+
+.chat {
+  margin-top: 4px;
+}
+
+.chat-log {
+  max-height: 180px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.chat-line {
+  margin: 4px 0;
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-word;
+  user-select: text;
+}
+
+.chat-line.assistant {
+  color: #bcd1ff;
+}
+
+.chat-line.user {
+  color: #fff;
+  text-align: right;
+}
+
+.chat-row {
+  display: flex;
+  gap: 8px;
+}
+
+.chat-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #eef1f6;
+  font-size: 13px;
+  outline: none;
+}
+
+.chat-row input:focus {
+  border-color: #5b8cff;
+}
+
+.chat-row .btn {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+}
+
+/* ---- adjust-range button ---- */
+
+.adjust-btn {
+  display: block;
+  margin: 0 0 8px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #bcd1ff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.adjust-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ---- marks ---- */
+
+.marks {
+  margin-top: 4px;
+}
+
+.marks-list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.mark-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.mark-row:last-child {
+  border-bottom: none;
+}
+
+.mark-row input {
+  margin-top: 3px;
+}
+
+.mark-content {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.mark-time {
+  color: #bcd1ff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.marks-empty {
+  color: #8a93a5;
+  font-size: 13px;
+  text-align: center;
+  padding: 12px 0;
+}
+
+.marks .btn {
+  display: block;
+  width: 100%;
+}
+
+/* ---- idle sprite ---- */
+
+body[data-idle] .sprite {
+  left: auto;
+  right: 15px;
+  top: auto;
+  bottom: 15px;
+}
+
+body[data-idle] .sprite-tag {
+  display: none;
+}
+
+/* ---- priority (enemyvision follow-up) ---- */
+
+.priority {
+  margin-top: 4px;
+}
+
+.priority-ask {
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+  color: #eef1f6;
+}
+
+.priority-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---- mark flow (needvision) ---- */
+
+.mark-flow {
+  margin-top: 4px;
+}
+
+.mark-choose,
+.mark-preview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mark-preview-text {
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  user-select: text;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  margin-bottom: 10px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.mark-note-row {
+  display: flex;
+  gap: 8px;
+}
+
+.mark-note-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #eef1f6;
+  font-size: 13px;
+  outline: none;
+}
+
+.mark-note-row input:focus {
+  border-color: #5b8cff;
+}
+
+.mark-note-row .btn {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+}
+
+.mark-time-title {
+  font-size: 14px;
+  margin-bottom: 10px;
+  color: #eef1f6;
+}
+
+.mark-time-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mark-time-options .btn {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+}
+
+/* ---- code blocks ---- */
+
+.code-block {
+  position: relative;
+  margin: 6px 0;
+}
+
+.code-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #bcd1ff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.code-copy:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.code-block pre {
+  margin: 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow-x: auto;
+  font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+/* ---- enlarged window modes ---- */
+
+body[data-size='half'] .sprite,
+body[data-size='full'] .sprite {
+  left: auto;
+  right: 24px;
+  top: auto;
+  bottom: 24px;
+}
+
+body[data-size='half'] .popup,
+body[data-size='full'] .popup {
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: auto;
+  max-height: none;
+  transform: none;
+  opacity: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body[data-size='half'] .chat,
+body[data-size='full'] .chat {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body[data-size='half'] .marks,
+body[data-size='full'] .marks {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body[data-size='half'] .popup-text,
+body[data-size='full'] .popup-text,
+body[data-size='half'] .chat-log,
+body[data-size='full'] .chat-log,
+body[data-size='half'] .marks-list,
+body[data-size='full'] .marks-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
+body[data-size='half'] .popup-thumb,
+body[data-size='full'] .popup-thumb,
+body[data-size='half'] .popup-actions,
+body[data-size='full'] .popup-actions,
+body[data-size='half'] .chat-row,
+body[data-size='full'] .chat-row {
+  flex-shrink: 0;
+}
+
+body[data-size='half'] .popup-thumb img,
+body[data-size='full'] .popup-thumb img {
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+/* The chat replaces the popup text, so the conversation gets the full space. */
+body.chat-open .popup-text {
+  display: none;
+}
+
+/* ---- region editor ---- */
+
+.region {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.region-box {
+  position: absolute;
+  border: 2px solid #5b8cff;
+  background: rgba(91, 140, 255, 0.12);
+  cursor: move;
+  box-sizing: border-box;
+}
+
+.handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid #5b8cff;
+  border-radius: 2px;
+}
+
+.handle.nw { top: -7px; left: -7px; cursor: nwse-resize; }
+.handle.ne { top: -7px; right: -7px; cursor: nesw-resize; }
+.handle.sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
+.handle.se { bottom: -7px; right: -7px; cursor: nwse-resize; }
+
+.region-toolbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(24, 28, 38, 0.94);
+}
+
+.region-toolbar #region-size {
+  color: #eef1f6;
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.region-toolbar .btn {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+}

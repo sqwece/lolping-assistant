@@ -32,6 +32,7 @@ vi.mock('electron', async () => {
       h.windows.push(this);
     }
     setIgnoreMouseEvents(): void {}
+    setContentProtection(): void {}
     setAlwaysOnTop(): void {}
     setVisibleOnAllWorkspaces(): void {}
     setBounds(r: Rect): void {
@@ -106,6 +107,13 @@ describe('OverlayManager wheels', () => {
       ['wheel:open', { x: 5, y: 5, wheel: 'ping' }],
       ['wheel:move', { x: 6, y: 6, wheel: 'ping' }],
     ]);
+  });
+
+  it('tells the assistant which display to pre-capture when the wheel opens', () => {
+    const wheelOpen = vi.fn();
+    mgr.on('wheelOpen', wheelOpen);
+    mgr.handle({ type: 'wheelOpen', x: 1920 + 100, y: 200, wheel: 'ping' });
+    expect(wheelOpen).toHaveBeenCalledWith(2);
   });
 });
 

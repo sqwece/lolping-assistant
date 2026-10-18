@@ -1,9 +1,11 @@
-import { Dropdown, Input, Option } from '@fluentui/react-components';
-import { Bot24Regular, Eye24Regular, Key24Regular, Person24Regular, ResizeLarge24Regular, TextFont24Regular } from '@fluentui/react-icons';
+import { Button, Dropdown, Input, Option } from '@fluentui/react-components';
+import { Bot24Regular, Clock24Regular, Desktop24Regular, Eye24Regular, Key24Regular, Person24Regular, ResizeLarge24Regular, Search24Regular, Send24Regular, TextFont24Regular } from '@fluentui/react-icons';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ASSISTANT_CHARACTERS, type AssistantCharacter } from '../../../shared/assistant';
 import type { Strings } from '../../../shared/i18n';
+import { ALL_PINGS, type PingId } from '../../../shared/pings';
 import type { Settings } from '../../../shared/settings';
+import { api } from '../api';
 import { useText } from '../text';
 import type { Update } from '../useAppState';
 import { SettingRow, SliderRow, SwitchRow } from './rows';
@@ -39,6 +41,7 @@ function TextRow(props: {
 export function AssistantSection({ settings: s, update }: { settings: Settings; update: Update }) {
   const t = useText();
   const dim = !s.assistantEnabled;
+  const [testPing, setTestPing] = useState<PingId>('missing');
   return (
     <>
       <SwitchRow icon={<Bot24Regular />} title={t.assistantEnabled} description={t.assistantEnabledDesc}
@@ -49,6 +52,8 @@ export function AssistantSection({ settings: s, update }: { settings: Settings; 
         value={s.visionModel} width={170} dim={dim} onSave={(visionModel) => void update({ visionModel })} />
       <TextRow icon={<TextFont24Regular />} title={t.assistantTextModel} description={t.assistantTextModelDesc}
         value={s.textModel} width={170} dim={dim} onSave={(textModel) => void update({ textModel })} />
+      <TextRow icon={<Search24Regular />} title={t.assistantSearchKey} description={t.assistantSearchKeyDesc}
+        value={s.searchApiKey} width={230} dim={dim} onSave={(searchApiKey) => void update({ searchApiKey })} />
       <SettingRow icon={<Person24Regular />} title={t.assistantCharacter} description={t.assistantCharacterDesc} dim={dim}>
         <Dropdown style={{ minWidth: 170 }} value={charLabel(s.assistantCharacter, t)} selectedOptions={[s.assistantCharacter]}
           onOptionSelect={(_, d) => void update({ assistantCharacter: d.optionValue as AssistantCharacter })}>
@@ -59,6 +64,19 @@ export function AssistantSection({ settings: s, update }: { settings: Settings; 
       </SettingRow>
       <SliderRow limit="regionSizePx" icon={<ResizeLarge24Regular />} title={t.assistantRegion} description={t.assistantRegionDesc}
         value={s.regionSizePx} format={(v) => `${v} px`} onChange={(v) => void update({ regionSizePx: v })} dim={dim} />
+      <SwitchRow icon={<Desktop24Regular />} title={t.assistantIdleOn} description={t.assistantIdleOnDesc}
+        checked={s.assistantIdleOn} onChange={(v) => void update({ assistantIdleOn: v })} dim={dim} />
+      <SliderRow limit="priorityTtlMinutes" icon={<Clock24Regular />} title={t.assistantPriorityTtl} description={t.assistantPriorityTtlDesc}
+        value={s.priorityTtlMinutes} format={(v) => t.assistantPriorityTtlValue(v)} onChange={(v) => void update({ priorityTtlMinutes: v })} dim={dim} />
+      <SettingRow icon={<Send24Regular />} title={t.assistantTest} description={t.assistantTestDesc} dim={dim}>
+        <Dropdown style={{ minWidth: 150 }} value={t.pingNames[testPing]} selectedOptions={[testPing]}
+          onOptionSelect={(_, d) => setTestPing(d.optionValue as PingId)}>
+          {ALL_PINGS.map((p) => (
+            <Option key={p.id} value={p.id} text={t.pingNames[p.id]}>{t.pingNames[p.id]}</Option>
+          ))}
+        </Dropdown>
+        <Button appearance="primary" disabled={dim} onClick={() => void api.testAssistant(testPing)}>{t.assistantTest}</Button>
+      </SettingRow>
     </>
   );
 }

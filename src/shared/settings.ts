@@ -80,10 +80,16 @@ export interface Settings {
   visionModel: string;
   /** Model that writes the assistant's text replies. */
   textModel: string;
+  /** Optional key for the assistant's web search (e.g. Tavily). Empty: search uses a free, key-less backend. */
+  searchApiKey: string;
   /** The assistant's look: 'none' draws a plain popup, anything else a character. */
   assistantCharacter: AssistantCharacter;
   /** Half-width of the square screen region captured around a ping, in physical pixels. */
   regionSizePx: number;
+  /** Whether the idle character sits on the desktop when no interaction is open. */
+  assistantIdleOn: boolean;
+  /** How long a saved priority ("重点事项") stays in context, in minutes. */
+  priorityTtlMinutes: number;
 }
 
 /** Per-machine defaults for the room profile: the OS username and a random tag colour. */
@@ -130,8 +136,11 @@ export const DEFAULT_SETTINGS: Settings = {
   apiKey: '',
   visionModel: 'deepseek-flash',
   textModel: 'deepseek-v4-pro',
+  searchApiKey: '',
   assistantCharacter: 'assistant',
   regionSizePx: 800,
+  assistantIdleOn: true,
+  priorityTtlMinutes: 60,
 };
 
 export const LIMITS = {
@@ -142,11 +151,12 @@ export const LIMITS = {
   incomingPingLimit: { min: 0, max: 20, step: 1 },
   emoteSizePx: { min: 80, max: 300, step: 1 },
   regionSizePx: { min: 200, max: 1600, step: 10 },
+  priorityTtlMinutes: { min: 5, max: 1440, step: 5 },
 } as const;
 
 type NumKey = keyof typeof LIMITS;
 type BoolKey = 'enabledOnStart' | 'clickPing' | 'gameCheck' | 'muted' | 'tickSound' | 'launchAtStartup' | 'allowInternet' | 'rejoinRoom' | 'roomMuted'
-  | 'emoteClick' | 'emoteSound' | 'friendEmotes' | 'autoUpdateCheck' | 'assistantEnabled';
+  | 'emoteClick' | 'emoteSound' | 'friendEmotes' | 'autoUpdateCheck' | 'assistantEnabled' | 'assistantIdleOn';
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isVk = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 254;
@@ -280,8 +290,11 @@ export function normalizeSettings(raw: unknown, platform: Platform = 'win', iden
     apiKey: typeof r.apiKey === 'string' ? r.apiKey.trim().slice(0, 256) : '',
     visionModel: text(r.visionModel, DEFAULT_SETTINGS.visionModel),
     textModel: text(r.textModel, DEFAULT_SETTINGS.textModel),
+    searchApiKey: typeof r.searchApiKey === 'string' ? r.searchApiKey.trim().slice(0, 256) : '',
     assistantCharacter: isAssistantCharacter(r.assistantCharacter) ? r.assistantCharacter : DEFAULT_SETTINGS.assistantCharacter,
     regionSizePx: num(r.regionSizePx, 'regionSizePx'),
+    assistantIdleOn: bool(r.assistantIdleOn, 'assistantIdleOn'),
+    priorityTtlMinutes: num(r.priorityTtlMinutes, 'priorityTtlMinutes'),
   };
 }
 

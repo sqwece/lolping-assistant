@@ -23,6 +23,8 @@ export interface SettingsIpcDeps {
   setEnabled(on: boolean): void;
   preview(id: PingId): void;
   previewEmote(ref: EmoteRef): void;
+  /** Runs the assistant with a sample ping at the centre of the primary display. */
+  testAssistant(ping: PingId): void;
   about(): About;
   retryHelper(): void;
   setCapturing(on: boolean): void;
@@ -95,6 +97,10 @@ export function registerSettingsIpc(d: SettingsIpcDeps): void {
   });
   ipcMain.handle(SETTINGS_CH.previewEmote, (_e, ref: unknown) => {
     if (isEmoteRefShape(ref)) d.previewEmote(ref);
+  });
+  ipcMain.handle(SETTINGS_CH.testAssistant, (_e, id: unknown) => {
+    const p = typeof id === 'string' ? pingById(id) : undefined;
+    if (p) d.testAssistant(p.id);
   });
   ipcMain.handle(SETTINGS_CH.emoteImport, (_e, raw: unknown) => oneAtATime(async (): Promise<ImportResult> => {
     const file = emoteFileFrom(raw);

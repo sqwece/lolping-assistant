@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WHEEL, pickSlice, regionRect } from '../../src/shared/geometry';
+import { WHEEL, clampRect, pickSlice, regionRect } from '../../src/shared/geometry';
 
 const at = (deg: number, r = 150) => {
   // deg measured clockwise from straight up (N), screen y points down
@@ -47,5 +47,25 @@ describe('regionRect', () => {
 
   it('shrinks to the whole bounds when the region is larger than them', () => {
     expect(regionRect(50, 50, 200, 100, 80)).toEqual({ x: 0, y: 0, width: 100, height: 80 });
+  });
+});
+
+describe('clampRect', () => {
+  const bounds = { x: 0, y: 0, width: 1920, height: 1080 };
+
+  it('keeps a window that already fits', () => {
+    expect(clampRect(100, 200, 520, 640, bounds)).toEqual({ x: 100, y: 200, width: 520, height: 640 });
+  });
+
+  it('pulls a window back inside the top-left edge', () => {
+    expect(clampRect(-80, -30, 520, 640, bounds)).toEqual({ x: 0, y: 0, width: 520, height: 640 });
+  });
+
+  it('pulls a window back inside the bottom-right edge', () => {
+    expect(clampRect(2000, 1200, 520, 640, bounds)).toEqual({ x: 1400, y: 440, width: 520, height: 640 });
+  });
+
+  it('caps a window larger than the bounds to the bounds', () => {
+    expect(clampRect(-10, -10, 4000, 4000, bounds)).toEqual({ x: 0, y: 0, width: 1920, height: 1080 });
   });
 });

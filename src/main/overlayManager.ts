@@ -93,6 +93,8 @@ export class OverlayManager extends EventEmitter {
         this.wheelDisplay = p.displayId;
         this.wheelKind = ev.wheel;
         this.send(p.displayId, 'wheel:open', { x: p.x, y: p.y, wheel: ev.wheel });
+        // The assistant pre-captures this display now, while it is still clean, so the ping can draw instantly later.
+        this.emit('wheelOpen', p.displayId);
         break;
       }
       case 'wheelMove':
@@ -227,6 +229,8 @@ export class OverlayManager extends EventEmitter {
       },
     });
     win.setIgnoreMouseEvents(true);
+    // Keep the wheel and ping out of desktopCapturer: the assistant's screenshot should show the game, not lolPing's UI.
+    win.setContentProtection(true);
     win.setAlwaysOnTop(true, 'screen-saver');
     if (IS_MAC) win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     win.webContents.on('did-finish-load', () => win.webContents.send('overlay:settings', this.settings));

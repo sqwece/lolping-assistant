@@ -13,6 +13,7 @@ import { formatRoomCode, parseRoomCode } from '../shared/roomCode';
 import { overlaySettings, type Settings } from '../shared/settings';
 import { updateErrorText, type UpdateState } from '../shared/update';
 import { registerAppScheme, serveAppScheme } from './appProtocol';
+import { Assistant } from './assistant';
 import { resolveTarget, toShared } from './displayNumbers';
 import { EmoteCache } from './emoteCache';
 import { EmoteLibrary, resolveEmoteArt } from './emoteLibrary';
@@ -105,6 +106,9 @@ function start(): void {
       }),
   );
   overlays.start();
+  const assistant = new Assistant(() => settings, text);
+  assistant.start();
+  assistant.idle(); // shows the idle sprite at startup when enabled (no-ops otherwise)
   const bridge = new InputBridge({ command: helperExePath() });
 
   // Updates: only in an installed build, or in a development build pointed at a test server with LOLPING_UPDATE_TEST_URL.
@@ -291,6 +295,16 @@ function start(): void {
   overlays.on('shared', (p: SharedPing) => {
     const shared = toShared(overlays.numbered(), p.displayId, p.x, p.y);
     if (shared) room.sendPing(p.id, shared);
+    // Every ping summons the assistant: vision reads the screen, chat opens a conversation, line shows a one-line remark.
+    // Overlay-local CSS px + the display's DIP origin = a global DIP point.
+    const display = screen.getAllDisplays().find((d) => d.id === p.displayId);
+    if (display) void assistant.show(p.id, { x: display.bounds.x + p.x, y: display.bounds.y + p.y });
+  });
+  overlays.on('wheelOpen', (displayId: number) => {
+    // Pre-capture the clean display as the wheel opens, so the ping draws instantly and the screenshot has no icon.
+    if (!settings.assistantEnabled) return;
+    const display = screen.getAllDisplays().find((d) => d.id === displayId);
+    if (display) void assistant.prime(display);
   });
   room.on('remoteEmote', (p) => overlays.spawnRemoteEmote(p));
   overlays.on('sharedEmote', (p: SharedEmote) => {
@@ -389,6 +403,10 @@ function start(): void {
     setEnabled,
     preview: (id) => overlays.previewPing(id),
     previewEmote: (ref) => overlays.previewEmote(ref),
+    testAssistant: (ping) => {
+      overlays.previewPing(ping); // the original ping animation stays; the assistant appears on top of it
+      assistant.test(ping);
+    },
     about,
     retryHelper: startHelper,
     setCapturing: (on) => {
@@ -444,16 +462,34 @@ function start(): void {
   app.on('window-all-closed', () => {
     /* stay running: the overlays are the app */
   });
-  app.on('before-quit', (event) => {
-    if (quitting) return;
+  const doQuit = (): void => {
     quitting = true;
-    event.preventDefault();
     updater?.stop(); // aborts a download and drops a check in flight; an install that is quitting the app is left alone
     room.quit(); // says bye, so the others see "left" instead of waiting for a timeout
     transfer.stop();
     stopWaitingForAccess();
     tray.destroy();
     overlays.destroy();
+    assistant.destroy();
     void Promise.allSettled([bridge.stop(), store.flush(), lan.whenClosed(), relay.whenClosed()]).then(() => app.exit(0));
+  };
+  app.on('before-quit', (event) => {
+    if (quitting) return;
+    event.preventDefault();
+    if (assistant.hasPendingMarks()) {
+      // Pending reminders die with the app; confirm before throwing them away.
+      const t = text();
+      void dialog.showMessageBox({
+        type: 'warning',
+        message: t.assistantQuitPending,
+        buttons: [t.assistantQuitStay, t.assistantQuitAnyway],
+        defaultId: 0,
+        cancelId: 0,
+      }).then(({ response }) => {
+        if (response === 1) doQuit();
+      });
+      return;
+    }
+    doQuit();
   });
 }

@@ -28,3 +28,12 @@ export function regionRect(cx: number, cy: number, sizePx: number, width: number
   const y = Math.max(0, Math.min(cy - half, height - h));
   return { x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) };
 }
+
+/** A width×height window placed at (x, y), shifted just enough to stay inside `bounds`. */
+export function clampRect(x: number, y: number, width: number, height: number, bounds: Rect): Rect {
+  const w = Math.min(width, bounds.width);
+  const h = Math.min(height, bounds.height);
+  const cx = Math.max(bounds.x, Math.min(x, bounds.x + bounds.width - w));
+  const cy = Math.max(bounds.y, Math.min(y, bounds.y + bounds.height - h));
+  return { x: Math.round(cx), y: Math.round(cy), width: Math.round(w), height: Math.round(h) };
+}

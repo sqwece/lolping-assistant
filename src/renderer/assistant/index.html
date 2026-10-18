@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>lolPing assistant</title>
+    <link rel="stylesheet" href="./assistant.css" />
+  </head>
+  <body>
+    <div id="stage">
+      <div id="sprite" class="sprite" data-character="assistant">
+        <canvas id="sprite-art" width="90" height="90"></canvas>
+        <div class="sprite-tag"></div>
+      </div>
+      <div id="popup" class="popup">
+        <div id="drag" class="popup-drag"></div>
+        <button id="enlarge" class="popup-enlarge"></button>
+        <button id="close" class="popup-close" aria-label="close">×</button>
+        <div class="popup-thumb"><img id="thumb" alt="" /></div>
+        <button id="adjust" class="adjust-btn"></button>
+        <div id="popup-text" class="popup-text"></div>
+        <div id="popup-actions" class="popup-actions">
+          <button id="yes" class="btn primary"></button>
+          <button id="no" class="btn"></button>
+          <button id="ask" class="btn"></button>
+        </div>
+        <div id="chat" class="chat hidden">
+          <div id="chat-log" class="chat-log"></div>
+          <div class="chat-row">
+            <input id="chat-input" type="text" />
+            <button id="chat-send" class="btn primary"></button>
+          </div>
+        </div>
+        <div id="marks" class="marks hidden">
+          <div id="marks-list" class="marks-list"></div>
+          <button id="marks-delete" class="btn"></button>
+        </div>
+        <div id="priority" class="priority hidden">
+          <div id="priority-ask" class="priority-ask"></div>
+          <div class="priority-actions">
+            <button id="priority-yes" class="btn primary"></button>
+            <button id="priority-no" class="btn"></button>
+          </div>
+        </div>
+        <div id="mark-flow" class="mark-flow hidden">
+          <div id="mark-choose" class="mark-choose">
+            <button id="mark-extract" class="btn primary"></button>
+            <button id="mark-note-btn" class="btn"></button>
+          </div>
+          <div id="mark-preview" class="hidden">
+            <div id="mark-preview-text" class="mark-preview-text"></div>
+            <div class="mark-preview-actions">
+              <button id="mark-confirm" class="btn primary"></button>
+              <button id="mark-reselect" class="btn"></button>
+            </div>
+          </div>
+          <div id="mark-note" class="hidden">
+            <div class="mark-note-row">
+              <input id="mark-note-input" type="text" />
+              <button id="mark-note-ok" class="btn primary"></button>
+            </div>
+          </div>
+          <div id="mark-time" class="hidden">
+            <div id="mark-time-title" class="mark-time-title"></div>
+            <div id="mark-time-options" class="mark-time-options"></div>
+          </div>
+        </div>
+      </div>
+      <div id="region" class="region hidden">
+        <div id="region-box" class="region-box">
+          <span class="handle nw" data-corner="nw"></span>
+          <span class="handle ne" data-corner="ne"></span>
+          <span class="handle sw" data-corner="sw"></span>
+          <span class="handle se" data-corner="se"></span>
+        </div>
+        <div class="region-toolbar">
+          <span id="region-size"></span>
+          <button id="region-ok" class="btn primary"></button>
+          <button id="region-cancel" class="btn"></button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

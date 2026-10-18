@@ -19,6 +19,7 @@ const api: SettingsApi = {
   setEnabled: (on) => ipcRenderer.invoke(SETTINGS_CH.setEnabled, on),
   previewPing: (id) => ipcRenderer.invoke(SETTINGS_CH.preview, id),
   previewEmote: (ref) => ipcRenderer.invoke(SETTINGS_CH.previewEmote, ref),
+  testAssistant: (ping) => ipcRenderer.invoke(SETTINGS_CH.testAssistant, ping),
   importEmote: (file) => ipcRenderer.invoke(SETTINGS_CH.emoteImport, file),
   removeEmote: (id) => ipcRenderer.invoke(SETTINGS_CH.emoteRemove, id),
   getAbout: () => ipcRenderer.invoke(SETTINGS_CH.about),
