@@ -93,7 +93,6 @@ export class OverlayManager extends EventEmitter {
         this.wheelDisplay = p.displayId;
         this.wheelKind = ev.wheel;
         this.send(p.displayId, 'wheel:open', { x: p.x, y: p.y, wheel: ev.wheel });
-        // The assistant pre-captures this display now, while it is still clean, so the ping can draw instantly later.
         this.emit('wheelOpen', p.displayId);
         break;
       }
@@ -234,6 +233,7 @@ export class OverlayManager extends EventEmitter {
     win.setAlwaysOnTop(true, 'screen-saver');
     if (IS_MAC) win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     win.webContents.on('did-finish-load', () => win.webContents.send('overlay:settings', this.settings));
+    win.webContents.on('console-message', (_e, level, message) => console.log(`[overlay-renderer:${level}]`, message));
     win.once('ready-to-show', () => {
       win.showInactive();
       win.setBounds(overlayBounds(d)); // re-apply: mixed-DPI setups can size the first frame wrong

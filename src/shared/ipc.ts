@@ -89,6 +89,8 @@ export interface AssistantEvents {
     ui: AssistantUi;
   };
   'assistant:answer': { text: string; thumbnail: string | null; askPriority?: boolean };
+  /** A streaming chunk of the answer being generated; arrives before the final `assistant:answer`. */
+  'assistant:delta': { text: string };
   /** Replaces the opening line of a chat ping with a freshly generated one (keeps the static greeting on error). */
   'assistant:remark': { text: string };
   /** A mark was saved: a short confirmation for the renderer. */

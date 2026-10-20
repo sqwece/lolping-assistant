@@ -300,12 +300,6 @@ function start(): void {
     const display = screen.getAllDisplays().find((d) => d.id === p.displayId);
     if (display) void assistant.show(p.id, { x: display.bounds.x + p.x, y: display.bounds.y + p.y });
   });
-  overlays.on('wheelOpen', (displayId: number) => {
-    // Pre-capture the clean display as the wheel opens, so the ping draws instantly and the screenshot has no icon.
-    if (!settings.assistantEnabled) return;
-    const display = screen.getAllDisplays().find((d) => d.id === displayId);
-    if (display) void assistant.prime(display);
-  });
   room.on('remoteEmote', (p) => overlays.spawnRemoteEmote(p));
   overlays.on('sharedEmote', (p: SharedEmote) => {
     const shared = toShared(overlays.numbered(), p.displayId, p.x, p.y);

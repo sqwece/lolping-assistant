@@ -1,6 +1,6 @@
 import type { AssistantCharacter, InteractionKind, MarkEntry, Movement } from '../../shared/assistant';
 import type { AssistantUi } from '../../shared/ipc';
-import { placeholderSheet, SpritePlayer } from './sprite';
+import { imageSheet, placeholderSheet, SpritePlayer } from './sprite';
 
 const sprite = document.getElementById('sprite') as HTMLElement;
 const spriteArt = document.getElementById('sprite-art') as HTMLCanvasElement;
@@ -82,6 +82,8 @@ let kind: InteractionKind = 'vision';
 let sizeMode: 'normal' | 'half' | 'full' = 'normal';
 /** A passive notice (a due mark / expired priority) is showing; the "Yes" button dismisses instead of confirming. */
 let noticeMode = false;
+/** An answer is streaming in chunk by chunk; the last turn is being appended to. */
+let streaming = false;
 
 function setSizeMode(mode: 'normal' | 'half' | 'full'): void {
   sizeMode = mode;
@@ -89,17 +91,22 @@ function setSizeMode(mode: 'normal' | 'half' | 'full'): void {
   enlargeBtn.textContent = mode === 'normal' ? ui.enlarge : mode === 'half' ? ui.fullscreen : ui.restore;
 }
 
-const CHARACTER_COLORS: Record<AssistantCharacter, [string, string] | null> = {
-  none: null,
-  assistant: ['#5b8cff', '#2f6bff'],
-  yasuo: ['#4aa8ff', '#1f6fd6'],
-  zed: ['#7a5bff', '#4a2fd6'],
-  teemo: ['#ffb14a', '#e8861f'],
-  kaisa: ['#ff5b9a', '#d61f6f'],
-};
-
-const player = new SpritePlayer(spriteArt, placeholderSheet('#5b8cff', '#2f6bff'));
+const player = new SpritePlayer(spriteArt, placeholderSheet('#5b8cff', '#2f6bff'), 1);
 player.start();
+
+// Chibi Gwen sprite sheet (3 gesture poses). Loaded async; the placeholder face shows until it's ready.
+const GWEN_SHEET_URL = '../sprite/gwen-sheet.png';
+const gwenImage = new Image();
+gwenImage.onload = () => {
+  player.setSheet(
+    imageSheet(gwenImage, 256, 256, 3, {
+      idle: { first: 0, count: 3 },
+      run: { first: 0, count: 3 },
+      jump: { first: 0, count: 3 },
+    }),
+  );
+};
+gwenImage.src = GWEN_SHEET_URL;
 
 let autoHide: ReturnType<typeof setTimeout> | null = null;
 
@@ -136,8 +143,6 @@ function animate(name: (typeof ENTER_CLASSES)[number], ms: number): Promise<void
 function setCharacter(character: AssistantCharacter): void {
   sprite.dataset.character = character;
   tag.textContent = character === 'none' ? '' : character;
-  const colors = CHARACTER_COLORS[character];
-  if (colors) player.setSheet(placeholderSheet(colors[0], colors[1]));
 }
 
 function applyLabels(): void {
@@ -384,7 +389,23 @@ window.assistant.on('assistant:show', (p) => {
 window.assistant.on('assistant:answer', (p) => {
   region.classList.add('hidden');
   setThumbnail(p.thumbnail);
-  addTurn({ who: 'assistant', text: p.text });
+  if (p.text === '') {
+    // Answer is being generated: show "thinking…" and open a streaming turn.
+    if (!streaming) {
+      streaming = true;
+      turns.push({ who: 'assistant', text: '' });
+      renderChat();
+    }
+    renderMessage(popupText, ui.thinking);
+    return;
+  }
+  if (streaming) {
+    turns[turns.length - 1] = { who: 'assistant', text: p.text };
+    streaming = false;
+    renderChat();
+  } else {
+    addTurn({ who: 'assistant', text: p.text });
+  }
   renderMessage(popupText, p.text);
   popup.classList.add('shown');
   if (kind === 'vision') {
@@ -407,6 +428,18 @@ window.assistant.on('assistant:answer', (p) => {
   }
 });
 
+window.assistant.on('assistant:delta', (p) => {
+  if (!streaming) {
+    streaming = true;
+    turns.push({ who: 'assistant', text: '' });
+    renderChat();
+  }
+  const last = turns[turns.length - 1];
+  last.text += p.text;
+  renderChat();
+  renderMessage(popupText, last.text);
+});
+
 window.assistant.on('assistant:remark', (p) => {
   // Replace the static opening line of a chat ping with the freshly generated one.
   if (turns.length > 0) turns[0] = { who: 'assistant', text: p.text };
@@ -426,6 +459,7 @@ window.assistant.on('assistant:mark', (p) => {
 
 window.assistant.on('assistant:idle', (p) => {
   document.body.dataset.idle = 'true';
+  setSizeMode('normal');
   noticeMode = false;
   setCharacter(p.character);
   markFlow.classList.add('hidden');
@@ -439,6 +473,7 @@ window.assistant.on('assistant:idle', (p) => {
   if (p.character === 'none') {
     sprite.style.display = 'none';
   } else {
+    sprite.classList.remove(...ENTER_CLASSES);
     sprite.style.display = '';
     player.play('idle');
   }

@@ -17,6 +17,17 @@ export interface SpriteSheet {
 
 export type CharacterAnimation = keyof SpriteSheet['animations'];
 
+/** Builds a sheet from a preloaded image laid out as a uniform grid of frames. */
+export function imageSheet(
+  image: CanvasImageSource,
+  frameW: number,
+  frameH: number,
+  columns: number,
+  animations: SpriteSheet['animations'],
+): SpriteSheet {
+  return { image, frameW, frameH, columns, animations };
+}
+
 /** Builds a placeholder sheet: 4 idle frames (blink + bob) then 4 run frames (lean), in one row. */
 export function placeholderSheet(color: string, shadow: string): SpriteSheet {
   const frameW = 90;

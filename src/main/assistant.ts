@@ -1,5 +1,5 @@
-import { BrowserWindow, ipcMain, screen, type Display, type NativeImage, type Point, type Rectangle } from 'electron';
-import { CHARACTER_MOVEMENT, PING_INTERACTION, PING_TONE, type AssistantCharacter, type MarkEntry, type Movement, type PriorityEntry, type ResizeMode, type Tone } from '../shared/assistant';
+import { BrowserWindow, ipcMain, screen, type Display, type Point, type Rectangle } from 'electron';
+import { PING_INTERACTION, PING_TONE, type AssistantCharacter, type MarkEntry, type Movement, type PriorityEntry, type ResizeMode, type Tone } from '../shared/assistant';
 import { clampRect } from '../shared/geometry';
 import type { Strings } from '../shared/i18n';
 import {
@@ -15,7 +15,7 @@ import type { Rect } from './coords';
 import { DeepSeekClient, type ChatMessage, type Tool } from './deepseek';
 import { readTextFile } from './fileRead';
 import { IS_MAC, loadPage, preloadPath } from './paths';
-import { captureDisplayThumbnail, captureRect, cropToDataUrl } from './screenCapture';
+import { captureRect } from './screenCapture';
 import { webSearch } from './webSearch';
 
 /** The assistant window's fixed size, in DIP. */
@@ -44,6 +44,19 @@ const SUMMARY_KEEP_TURNS = 4;
 
 /** Where the sprite's anchor sits inside the window: the point placed on the ping. */
 const SPRITE_ANCHOR = { x: ASSISTANT_SIZE.width / 2, y: 140 };
+
+/** Movement durations in ms; keep in sync with the renderer's enter-* CSS animation lengths. */
+const MOVEMENT_MS: Record<Movement, number> = { teleport: 360, jump: 610, dash: 410, fly: 510 };
+
+/** How high a jump arc rises above the straight line between the two spots, in DIP. */
+const JUMP_ARC = 220;
+
+/** All movement styles; picked at random on each ping so the hop stays lively. */
+const MOVEMENTS: Movement[] = ['teleport', 'jump', 'dash', 'fly'];
+
+function randomMovement(): Movement {
+  return MOVEMENTS[Math.floor(Math.random() * MOVEMENTS.length)];
+}
 
 /** A point in global DIP coordinates (Electron's window space). */
 interface DipPoint {
@@ -85,8 +98,6 @@ export class Assistant {
   private idleRequested = false;
   /** The in-progress mark's content between the note/preview step and the time step. */
   private markContent: string | null = null;
-  /** A whole-display frame captured before a ping is drawn, so the screenshot has no ping icon in it. */
-  private primed: { displayId: number; thumbnail: NativeImage } | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -220,31 +231,12 @@ export class Assistant {
     this.display = display;
     const sizeDip = s.regionSizePx / (IS_MAC ? 1 : display.scaleFactor);
     this.region = { x: point.x - sizeDip / 2, y: point.y - sizeDip / 2, width: sizeDip, height: sizeDip };
-    const kind = PING_INTERACTION[ping];
-    let thumbnail: string | null = null;
-    if (kind === 'vision' || kind === 'mark') {
-      try {
-        thumbnail = await this.capture(display, this.region);
-      } catch (err) {
-        console.error('[assistant] capture failed', err);
-      }
-    }
-    this.pending = { ping, point, thumbnail };
+    // No capture here: a full-screen grab blocks input for ~700ms, so the screenshot is taken lazily on confirm.
+    this.pending = { ping, point, thumbnail: null };
     this.messages = [];
     this.expiryNotice = this.drainExpiredPriorities();
     this.ensureWindow();
     this.schedulePresent();
-  }
-
-  /** Pre-captures a whole display, so the next ping can draw instantly and crop a clean, pre-ping screenshot. */
-  async prime(display: Display): Promise<void> {
-    try {
-      const phys = (IS_MAC ? display.bounds : screen.dipToScreenRect(null, display.bounds)) as Rectangle;
-      const thumbnail = await captureDisplayThumbnail(display.id, phys);
-      if (thumbnail) this.primed = { displayId: display.id, thumbnail };
-    } catch (err) {
-      console.error('[assistant] prime failed', err);
-    }
   }
 
   /** Schedules the popup after a quiet pause: a burst of pings shows only the last one. */
@@ -317,6 +309,41 @@ export class Assistant {
     this.send('assistant:size', { mode: next });
   }
 
+  /** Eases the horizontal travel for a movement; `jump` handles its own arc, so this is only x (and non-jump y). */
+  private movementEase(movement: Movement, t: number): number {
+    if (movement === 'dash') return 1 - Math.pow(1 - t, 3); // ease-out: launches fast, settles
+    if (movement === 'fly') return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // ease-in-out
+    return t;
+  }
+
+  /** Animates the window from its current bounds to `target` over `ms`, then calls `done`. */
+  private flyTo(target: Rectangle, movement: Movement, ms: number, done: () => void): void {
+    const win = this.win;
+    if (!win || win.isDestroyed()) return;
+    if (movement === 'teleport') {
+      win.setBounds(target);
+      done();
+      return;
+    }
+    const from = win.getBounds();
+    const start = this.now();
+    const step = (): void => {
+      if (!win || win.isDestroyed()) return;
+      const t = Math.min(1, (this.now() - start) / ms);
+      const ex = this.movementEase(movement, t);
+      const x = Math.round(from.x + (target.x - from.x) * ex);
+      const y = movement === 'jump'
+        ? Math.round(from.y + (target.y - from.y) * t - JUMP_ARC * Math.sin(Math.PI * t))
+        : Math.round(from.y + (target.y - from.y) * ex);
+      const width = Math.round(from.width + (target.width - from.width) * t);
+      const height = Math.round(from.height + (target.height - from.height) * t);
+      win.setBounds({ x, y, width, height });
+      if (t < 1) setTimeout(step, 16);
+      else done();
+    };
+    step();
+  }
+
   /** Positions and shows the window, then asks the renderer for a confirmation popup. */
   private present(): void {
     const p = this.pending;
@@ -326,7 +353,7 @@ export class Assistant {
     const s = this.getSettings();
     const t = this.text();
     const character: AssistantCharacter = s.assistantCharacter;
-    const movement: Movement = character === 'none' ? 'teleport' : CHARACTER_MOVEMENT[character];
+    const movement: Movement = character === 'none' ? 'teleport' : randomMovement();
     const ui: AssistantUi = {
       confirm: t.assistantConfirm, cancel: t.assistantCancel, ask: t.assistantAsk,
       thinking: t.assistantThinking, placeholder: t.assistantInputPlaceholder, adjust: t.assistantAdjust,
@@ -336,12 +363,9 @@ export class Assistant {
       markNotePlaceholder: t.assistantMarkNotePlaceholder, markTimeTitle: t.assistantMarkTimeTitle,
       priorityAsk: t.assistantPriorityAsk, priorityMark: t.assistantPriorityMark, prioritySkip: t.assistantPrioritySkip,
     };
-    win.setBounds(this.normalBounds());
-    win.show();
-    win.focus();
     const greeting = this.expiryNotice ? `${t.assistantGreetings[p.ping]}\n${this.expiryNotice}` : t.assistantGreetings[p.ping];
     this.expiryNotice = null;
-    this.send('assistant:show', {
+    const payload = {
       character,
       movement,
       greeting,
@@ -350,7 +374,19 @@ export class Assistant {
       kind: PING_INTERACTION[p.ping],
       tone: this.tone,
       ui,
-    });
+    };
+    const showPopup = (): void => this.send('assistant:show', payload);
+    const target = this.normalBounds();
+    const wasVisible = win.isVisible();
+    win.show();
+    win.focus();
+    if (wasVisible) {
+      // Fly the sprite from its resting spot to the ping point instead of teleporting the window.
+      this.flyTo(target, movement, MOVEMENT_MS[movement], showPopup);
+    } else {
+      win.setBounds(target);
+      showPopup();
+    }
   }
 
   /** The user confirmed the popup: dispatch by the ping's interaction kind. */
@@ -366,11 +402,13 @@ export class Assistant {
   private async answerVision(): Promise<void> {
     const s = this.getSettings();
     if (!s.apiKey) { this.send('assistant:answer', { text: this.text().assistantNoKey, thumbnail: null }); return; }
-    const thumbnail = this.pending?.thumbnail ?? null;
+    const thumbnail = await this.capturePending();
     if (!thumbnail) { this.send('assistant:answer', { text: this.text().assistantNoKey, thumbnail: null }); return; }
     try {
       const client = new DeepSeekClient({ apiKey: s.apiKey, visionModel: s.visionModel, textModel: s.textModel });
-      const reply = await client.vision(this.visionPrompt(), thumbnail);
+      const reply = await client.streamVision(this.visionPrompt(), thumbnail, (chunk) => {
+        this.send('assistant:delta', { text: chunk });
+      });
       this.messages = [
         { role: 'system', content: this.systemPrompt() },
         { role: 'assistant', content: reply },
@@ -391,7 +429,7 @@ export class Assistant {
   private async markExtract(): Promise<void> {
     const s = this.getSettings();
     if (!s.apiKey) { this.send('assistant:mark', { text: this.text().assistantNoKey }); return; }
-    const thumbnail = this.pending?.thumbnail ?? null;
+    const thumbnail = await this.capturePending();
     if (!thumbnail) { this.send('assistant:mark', { text: this.text().assistantNoKey }); return; }
     try {
       const client = new DeepSeekClient({ apiKey: s.apiKey, visionModel: s.visionModel, textModel: s.textModel });
@@ -512,6 +550,8 @@ export class Assistant {
     }
     if (this.messages.length === 0) this.messages.push({ role: 'system', content: this.systemPrompt() });
     this.messages.push({ role: 'user', content: text });
+    // Show "thinking…" while the ReAct loop runs (web_search / read_file take a moment).
+    this.send('assistant:answer', { text: '', thumbnail: null });
     try {
       const client = new DeepSeekClient({ apiKey: s.apiKey, visionModel: s.visionModel, textModel: s.textModel });
       await this.compressIfNeeded(client);
@@ -661,18 +701,11 @@ export class Assistant {
     });
   }
 
-  /** The user confirmed a new region (window-local DIP): re-capture it and re-show the confirmation. */
-  private async finishAdjust(rect: Rect): Promise<void> {
+  /** The user confirmed a new region (window-local DIP): store it and re-show the confirmation (no capture yet). */
+  private finishAdjust(rect: Rect): void {
     const display = this.display;
     if (!display) return;
     this.region = { x: display.bounds.x + rect.x, y: display.bounds.y + rect.y, width: rect.width, height: rect.height };
-    if (this.pending && (PING_INTERACTION[this.ping] === 'vision' || PING_INTERACTION[this.ping] === 'mark')) {
-      try {
-        this.pending.thumbnail = await this.capture(display, this.region);
-      } catch (err) {
-        console.error('[assistant] re-capture failed', err);
-      }
-    }
     this.present();
   }
 
@@ -731,16 +764,24 @@ export class Assistant {
     this.win = win;
   }
 
-  /** Captures a rectangle on `display` (a DIP rect) as a PNG `data:` URL, reusing the pre-captured frame when there is one. */
+  /** Captures a rectangle on `display` (a DIP rect) as a PNG `data:` URL. */
   private async capture(display: Display, region: Rect): Promise<string | null> {
     const scale = IS_MAC ? 1 : display.scaleFactor;
-    const primed = this.primed;
-    if (primed && primed.displayId === display.id) {
-      this.primed = null; // single-use: the next ping pre-captures again
-      return cropToDataUrl(primed.thumbnail, display.bounds, scale, region);
-    }
     const phys = (IS_MAC ? display.bounds : screen.dipToScreenRect(null, display.bounds)) as Rectangle;
     return captureRect(display.id, phys, display.bounds, scale, region);
+  }
+
+  /** Captures the pending region now (called only after the user confirmed, when input latency no longer matters). */
+  private async capturePending(): Promise<string | null> {
+    const display = this.display;
+    const region = this.region;
+    if (!display || !region) return null;
+    try {
+      return await this.capture(display, region);
+    } catch (err) {
+      console.error('[assistant] capture failed', err);
+      return null;
+    }
   }
 
   private send<C extends AssistantChannel>(channel: C, payload: AssistantEvents[C]): void {
