@@ -106,6 +106,8 @@ export interface AssistantEvents {
   'assistant:idle': { character: AssistantCharacter };
   /** A passive text notice (an expired priority, a due mark). */
   'assistant:notice': { text: string };
+  /** A lazily-captured region arrives after the ping, so the confirm dialog can preview its target. */
+  'assistant:thumbnail': { thumbnail: string | null };
   /** Mark flow step 1: ask whether to extract the screenshot or hand-write the note. */
   'assistant:mark-choose': Record<string, never>;
   /** Mark flow (extract): show the summarised content for the user to accept or reselect. */

@@ -33,6 +33,9 @@ const MARK_TIME_OPTIONS = [5, 15, 30, 60];
 /** Trailing debounce: rapid pings are one interaction — only the last one (after a quiet pause) opens the popup. */
 const DEBOUNCE_MS = 1000;
 
+/** A short buffer after the popup is on screen before grabbing the region, so the flight animation never competes with it. */
+const PREFETCH_DELAY_MS = 100;
+
 /** How often the main process checks for due marks. */
 const MARK_TICK_MS = 30 * 1000;
 
@@ -99,6 +102,10 @@ export class Assistant {
   /** The in-progress mark's content between the note/preview step and the time step. */
   private markContent: string | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The delayed region grab scheduled after a ping, so the confirm dialog can preview its target. */
+  private prefetchTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The in-flight region grab, shared so a prefetch and a confirm don't read the screen twice. */
+  private capturePromise: Promise<string | null> | null = null;
 
   constructor(
     private readonly getSettings: () => Settings,
@@ -173,6 +180,7 @@ export class Assistant {
 
   destroy(): void {
     if (this.debounceTimer !== null) clearTimeout(this.debounceTimer);
+    if (this.prefetchTimer !== null) clearTimeout(this.prefetchTimer);
     if (this.markTimer !== null) clearInterval(this.markTimer);
     if (this.win && !this.win.isDestroyed()) this.win.destroy();
     this.win = null;
@@ -236,6 +244,7 @@ export class Assistant {
     this.messages = [];
     this.expiryNotice = this.drainExpiredPriorities();
     this.ensureWindow();
+    this.capturePromise = null; // a new ping invalidates any in-flight grab
     this.schedulePresent();
   }
 
@@ -382,10 +391,14 @@ export class Assistant {
     win.focus();
     if (wasVisible) {
       // Fly the sprite from its resting spot to the ping point instead of teleporting the window.
-      this.flyTo(target, movement, MOVEMENT_MS[movement], showPopup);
+      this.flyTo(target, movement, MOVEMENT_MS[movement], () => {
+        showPopup();
+        this.schedulePrefetch(); // grab only after the flight, so the two never block each other
+      });
     } else {
       win.setBounds(target);
       showPopup();
+      this.schedulePrefetch();
     }
   }
 
@@ -675,6 +688,7 @@ export class Assistant {
 
   /** Starts the leave animation; the renderer reports back through `done()` and the window is hidden then. */
   private hide(): void {
+    if (this.prefetchTimer !== null) clearTimeout(this.prefetchTimer);
     this.send('assistant:hide', null);
   }
 
@@ -743,6 +757,8 @@ export class Assistant {
     win.setAlwaysOnTop(true, 'screen-saver');
     // Click through the transparent parts; the renderer turns interactivity on when the cursor is over the popup.
     win.setIgnoreMouseEvents(true, { forward: true });
+    // Keep the sprite and popup out of desktopCapturer: the screenshot should show the game, not the assistant itself.
+    win.setContentProtection(true);
     if (IS_MAC) win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
     win.webContents.on('did-finish-load', () => {
       console.log('[assistant] page loaded');
@@ -771,17 +787,45 @@ export class Assistant {
     return captureRect(display.id, phys, display.bounds, scale, region);
   }
 
-  /** Captures the pending region now (called only after the user confirmed, when input latency no longer matters). */
-  private async capturePending(): Promise<string | null> {
+  /** Schedules a background region grab once the popup is up, so the confirm dialog can preview its target (vision/mark only). */
+  private schedulePrefetch(): void {
+    if (this.prefetchTimer !== null) clearTimeout(this.prefetchTimer);
+    const kind = PING_INTERACTION[this.ping];
+    if (kind !== 'vision' && kind !== 'mark') return;
+    this.prefetchTimer = setTimeout(() => {
+      this.prefetchTimer = null;
+      void this.prefetchCapture();
+    }, PREFETCH_DELAY_MS);
+  }
+
+  /** Grabs the region in the quiet gap after the ping and pushes it to the popup once ready. */
+  private async prefetchCapture(): Promise<void> {
+    const thumbnail = await this.capturePending();
+    if (thumbnail && this.pending) this.send('assistant:thumbnail', { thumbnail });
+  }
+
+  /** Captures the pending region, reusing a prefetched frame or an in-flight grab (no duplicate full-screen reads). */
+  private capturePending(): Promise<string | null> {
     const display = this.display;
     const region = this.region;
-    if (!display || !region) return null;
-    try {
-      return await this.capture(display, region);
-    } catch (err) {
-      console.error('[assistant] capture failed', err);
-      return null;
+    const pending = this.pending;
+    if (!display || !region || !pending) return Promise.resolve(null);
+    if (pending.thumbnail) return Promise.resolve(pending.thumbnail);
+    if (!this.capturePromise) {
+      this.capturePromise = this.capture(display, region)
+        .then((thumb) => {
+          pending.thumbnail = thumb;
+          return thumb;
+        })
+        .catch((err) => {
+          console.error('[assistant] capture failed', err);
+          return null;
+        })
+        .finally(() => {
+          this.capturePromise = null;
+        });
     }
+    return this.capturePromise;
   }
 
   private send<C extends AssistantChannel>(channel: C, payload: AssistantEvents[C]): void {

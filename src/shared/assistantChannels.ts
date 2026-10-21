@@ -6,6 +6,7 @@ export const ASSISTANT_CHANNELS = [
   'assistant:show', 'assistant:answer', 'assistant:delta', 'assistant:remark', 'assistant:mark', 'assistant:marks',
   'assistant:size', 'assistant:hide', 'assistant:region', 'assistant:idle', 'assistant:notice',
   'assistant:mark-choose', 'assistant:mark-preview', 'assistant:mark-note', 'assistant:mark-time',
+  'assistant:thumbnail',
 ] as const;
 
 /** assistant renderer → main: the user answered "Yes" (analyse the screen). */

@@ -386,6 +386,10 @@ window.assistant.on('assistant:show', (p) => {
   }
 });
 
+window.assistant.on('assistant:thumbnail', (p) => {
+  setThumbnail(p.thumbnail);
+});
+
 window.assistant.on('assistant:answer', (p) => {
   region.classList.add('hidden');
   setThumbnail(p.thumbnail);
