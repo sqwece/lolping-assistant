@@ -91,7 +91,7 @@ function setSizeMode(mode: 'normal' | 'half' | 'full'): void {
   enlargeBtn.textContent = mode === 'normal' ? ui.enlarge : mode === 'half' ? ui.fullscreen : ui.restore;
 }
 
-const player = new SpritePlayer(spriteArt, placeholderSheet('#5b8cff', '#2f6bff'), 1);
+const player = new SpritePlayer(spriteArt, placeholderSheet('#5b8cff', '#2f6bff'), 12);
 player.start();
 
 // Chibi Gwen sprite sheet (3 gesture poses). Loaded async; the placeholder face shows until it's ready.
@@ -99,14 +99,75 @@ const GWEN_SHEET_URL = '../sprite/gwen-sheet.png';
 const gwenImage = new Image();
 gwenImage.onload = () => {
   player.setSheet(
-    imageSheet(gwenImage, 256, 256, 3, {
-      idle: { first: 0, count: 3 },
-      run: { first: 0, count: 3 },
-      jump: { first: 0, count: 3 },
+    imageSheet(gwenImage, 256, 256, 16, {
+      idle: { first: 0, count: 16 },
+      idle_in: { first: 16, count: 12 },
+      walk: { first: 28, count: 16 },
+      run: { first: 44, count: 16 },
+      haste: { first: 60, count: 16 },
+      jump: { first: 76, count: 12 },
+      greet: { first: 88, count: 12 },
+      dive_in: { first: 100, count: 12 },
+      dive_out: { first: 112, count: 12 },
+      cast_start: { first: 124, count: 12 },
+      think: { first: 136, count: 16 },
+      interact: { first: 152, count: 12 },
+      laugh: { first: 164, count: 12 },
+      laugh2: { first: 176, count: 12 },
+      dance_in: { first: 188, count: 12 },
+      dance: { first: 200, count: 16 },
+      doll: { first: 216, count: 16 },
+      taunt: { first: 232, count: 12 },
+      hurt: { first: 244, count: 12 },
+      celebrate: { first: 256, count: 12 },
+      recall: { first: 268, count: 12 },
+      recall_out: { first: 280, count: 12 },
+      death: { first: 292, count: 12 },
+      drag: { first: 216, count: 16 },
     }),
   );
 };
 gwenImage.src = GWEN_SHEET_URL;
+
+// ---- idle variety: occasional cute actions while idle on the desktop ----
+let idleVarietyTimer: ReturnType<typeof setTimeout> | null = null;
+
+function cancelIdleVariety(): void {
+  if (idleVarietyTimer !== null) {
+    clearTimeout(idleVarietyTimer);
+    idleVarietyTimer = null;
+  }
+}
+
+function scheduleIdleVariety(): void {
+  cancelIdleVariety();
+  idleVarietyTimer = setTimeout(playIdleVariety, 12000 + Math.random() * 18000);
+}
+
+function playIdleVariety(): void {
+  const roll = Math.random();
+  if (roll < 0.3) player.playOnce('laugh', 'idle');
+  else if (roll < 0.5) player.playOnce('laugh2', 'idle');
+  else if (roll < 0.7) player.playOnce('taunt', 'idle');
+  else if (roll < 0.85) player.playOnce('doll', 'idle');
+  else {
+    player.playSequence(['dance_in'], 'dance');
+    setTimeout(() => player.playSequence(['idle_in'], 'idle'), 4000);
+  }
+  scheduleIdleVariety();
+}
+
+// ---- usage-too-long reminder: Gwen faints to nudge a break ----
+const USAGE_LIMIT_MS = 30 * 60 * 1000;
+let usageTimer: ReturnType<typeof setTimeout> | null = null;
+
+function armUsageReminder(): void {
+  if (usageTimer !== null) clearTimeout(usageTimer);
+  usageTimer = setTimeout(() => {
+    player.playOnce('death', 'idle');
+    armUsageReminder();
+  }, USAGE_LIMIT_MS);
+}
 
 let autoHide: ReturnType<typeof setTimeout> | null = null;
 
@@ -378,9 +439,11 @@ window.assistant.on('assistant:show', (p) => {
     popup.classList.add('shown');
   } else {
     sprite.style.display = '';
-    player.play('run');
+    cancelIdleVariety();
+    if (p.movement === 'jump') player.playOnce('jump', 'idle');
+    else player.playOnce('greet', 'idle');
     void animate(`enter-${p.movement}`, MOVEMENT_MS[p.movement]).then(() => {
-      player.play('idle');
+      player.playSequence(['idle_in'], 'idle');
       popup.classList.add('shown');
     });
   }
@@ -399,6 +462,7 @@ window.assistant.on('assistant:answer', (p) => {
       streaming = true;
       turns.push({ who: 'assistant', text: '' });
       renderChat();
+      player.playSequence(['cast_start'], 'think');
     }
     renderMessage(popupText, ui.thinking);
     return;
@@ -412,6 +476,7 @@ window.assistant.on('assistant:answer', (p) => {
   }
   renderMessage(popupText, p.text);
   popup.classList.add('shown');
+  player.playOnce('celebrate', 'idle');
   if (kind === 'vision') {
     chat.classList.add('hidden');
     document.body.classList.remove('chat-open');
@@ -480,6 +545,7 @@ window.assistant.on('assistant:idle', (p) => {
     sprite.classList.remove(...ENTER_CLASSES);
     sprite.style.display = '';
     player.play('idle');
+    scheduleIdleVariety();
   }
 });
 
@@ -575,6 +641,8 @@ yesBtn.addEventListener('click', () => {
     window.assistant.dismiss();
     return;
   }
+  const interactions: Array<'interact' | 'laugh' | 'taunt'> = ['interact', 'laugh', 'taunt'];
+  player.playOnce(interactions[Math.floor(Math.random() * interactions.length)], 'idle');
   actions.classList.add('hidden');
   if (kind === 'vision' || kind === 'mark') renderMessage(popupText, ui.thinking);
   if (kind === 'chat') {
@@ -584,8 +652,8 @@ yesBtn.addEventListener('click', () => {
   }
   window.assistant.confirm();
 });
-noBtn.addEventListener('click', () => { cancelAutoHide(); window.assistant.dismiss(); });
-closeBtn.addEventListener('click', () => { cancelAutoHide(); window.assistant.dismiss(); });
+noBtn.addEventListener('click', () => { cancelAutoHide(); player.playOnce('hurt', 'idle'); window.assistant.dismiss(); });
+closeBtn.addEventListener('click', () => { cancelAutoHide(); player.playOnce('hurt', 'idle'); window.assistant.dismiss(); });
 askBtn.addEventListener('click', () => {
   actions.classList.add('hidden');
   chat.classList.remove('hidden');
@@ -641,6 +709,7 @@ let dragging = false;
 function startDrag(e: MouseEvent): void {
   if (e.button !== 0) return;
   dragging = true;
+  player.play('drag');
   window.assistant.drag('start');
 }
 sprite.addEventListener('mousedown', startDrag);
@@ -651,9 +720,11 @@ window.addEventListener('mousemove', () => {
 window.addEventListener('mouseup', () => {
   if (dragging) {
     dragging = false;
+    player.play('idle');
     window.assistant.drag('end');
   }
 });
 
 applyLabels();
 setSizeMode('normal');
+armUsageReminder();
