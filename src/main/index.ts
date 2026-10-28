@@ -304,6 +304,7 @@ function start(): void {
   overlays.on('sharedEmote', (p: SharedEmote) => {
     const shared = toShared(overlays.numbered(), p.displayId, p.x, p.y);
     if (shared) room.sendEmote(p.ref, shared);
+    assistant.emote(p.ref); // the sprite reacts with the mapped action, without opening the popup
   });
   room.on('saveCode', (code: string | null) => store.update({ lastRoomCode: code }));
   room.on('toast', (n: RoomToast) => {

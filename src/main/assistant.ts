@@ -7,7 +7,7 @@ import {
   ASSISTANT_DISMISS, ASSISTANT_DONE, ASSISTANT_DRAG, ASSISTANT_MARK_CHOICE, ASSISTANT_MARK_NOTE_TEXT,
   ASSISTANT_MARK_PREVIEW_OK, ASSISTANT_MARK_TIME_SET, ASSISTANT_PRIORITY_MARK, ASSISTANT_RESIZE,
   ASSISTANT_SET_INTERACTIVE, ASSISTANT_UNMARK,
-  type AssistantChannel, type AssistantEvents, type AssistantUi,
+  type AssistantChannel, type AssistantEvents, type AssistantUi, type EmoteReaction,
 } from '../shared/ipc';
 import type { PingId } from '../shared/pings';
 import type { Settings } from '../shared/settings';
@@ -26,6 +26,33 @@ const IDLE_SIZE = { width: 120, height: 140 } as const;
 
 /** How far the idle sprite sits from the display's bottom-right corner. */
 const IDLE_MARGIN = 20;
+
+/** An emote slug → the sprite action it plays. Custom/unknown emotes fall back to a friendly wave. */
+const EMOTE_ACTION: Readonly<Record<string, EmoteReaction>> = {
+  // 赞许 / 点赞
+  gg_heart: 'celebrate', omg_love_it: 'celebrate', super_approved: 'celebrate', nice_try: 'celebrate',
+  nice: 'celebrate', scout_approved: 'celebrate', okay: 'celebrate', good_job_buddy: 'celebrate',
+  teamwork: 'celebrate',
+  // 大笑
+  wahaha: 'laugh', dont_make_me_laugh: 'laugh', haha_hilarious: 'laugh', laughing_out_loud: 'laugh',
+  // 嘲讽 / 挑衅
+  unworthy: 'taunt', unworthy_cn: 'taunt', angry_kitty: 'taunt', bee_mad: 'taunt', unimpressed: 'taunt',
+  did_you_just: 'taunt', come_at_me: 'taunt', how_could_you: 'taunt', i_will_destroy_you: 'taunt',
+  not_today: 'taunt', such_foolishness: 'taunt',
+  // 开心 / 跳舞
+  poro_snax: 'dance', cheeky_poro: 'dance', bee_happy: 'dance',
+  // 悲伤 / 沮丧
+  sad_kitten: 'hurt', bee_sad: 'hurt', pain: 'hurt', despair: 'hurt', maybe_next_time: 'hurt', oh: 'hurt',
+  // 疑惑 / 思考
+  facepalm: 'think', woah_dizzy: 'think', think_about_it: 'think', does_not_compute: 'think',
+  come_again: 'think', magpie_oopsie: 'think',
+  // 惊讶 / 激动
+  gasp: 'jump', poro_ride: 'jump',
+  // 友好 / 致意
+  hats_off: 'greet', call_me: 'greet',
+  // 打盹 / 安静
+  snoozy_poro: 'doll',
+};
 
 /** The reminder delays offered when saving a mark, in minutes. */
 const MARK_TIME_OPTIONS = [5, 15, 30, 60];
@@ -198,6 +225,15 @@ export class Assistant {
     this.idleRequested = true;
     this.ensureWindow();
     if (this.loaded) this.presentIdle();
+  }
+
+  /** A room member placed an emote: react with a matching sprite action (never opens the popup or flies). */
+  emote(ref: string): void {
+    const s = this.getSettings();
+    if (!s.assistantEnabled) return;
+    const win = this.win;
+    if (!win || win.isDestroyed() || !win.isVisible()) return; // only react while already on screen
+    this.send('assistant:emote', { action: EMOTE_ACTION[ref] ?? 'greet' });
   }
 
   /** Positions the window at the idle spot and asks the renderer for the idle sprite (no popup). */
@@ -720,6 +756,10 @@ export class Assistant {
     const display = this.display;
     if (!display) return;
     this.region = { x: display.bounds.x + rect.x, y: display.bounds.y + rect.y, width: rect.width, height: rect.height };
+    // The region changed, so any prefetched thumbnail (and in-flight grab) is stale.
+    // Reset it so the popup re-captures the new region instead of showing the old screenshot.
+    if (this.pending) this.pending.thumbnail = null;
+    this.capturePromise = null;
     this.present();
   }
 

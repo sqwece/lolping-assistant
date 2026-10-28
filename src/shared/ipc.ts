@@ -76,6 +76,10 @@ export interface AssistantUi {
   prioritySkip: string;
 }
 
+/** The sprite action an emote maps to — a subset of the sprite's `CharacterAnimation`. */
+export type EmoteReaction =
+  | 'celebrate' | 'laugh' | 'laugh2' | 'taunt' | 'dance' | 'hurt' | 'think' | 'jump' | 'greet' | 'doll';
+
 /** main → assistant renderer messages. */
 export interface AssistantEvents {
   'assistant:show': {
@@ -104,6 +108,8 @@ export interface AssistantEvents {
   'assistant:region': { rect: Rect; scale: number };
   /** Enter idle mode: show only the character at the idle spot, no popup. */
   'assistant:idle': { character: AssistantCharacter };
+  /** A room member placed an emote: the sprite plays the mapped action (never opens the popup). */
+  'assistant:emote': { action: EmoteReaction };
   /** A passive text notice (an expired priority, a due mark). */
   'assistant:notice': { text: string };
   /** A lazily-captured region arrives after the ping, so the confirm dialog can preview its target. */
