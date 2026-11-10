@@ -78,7 +78,7 @@ export interface AssistantUi {
 
 /** The sprite action an emote maps to — a subset of the sprite's `CharacterAnimation`. */
 export type EmoteReaction =
-  | 'celebrate' | 'laugh' | 'laugh2' | 'taunt' | 'dance' | 'hurt' | 'think' | 'jump' | 'greet' | 'doll';
+  | 'celebrate' | 'laugh' | 'laugh2' | 'taunt' | 'dance' | 'dance_in' | 'hurt' | 'think' | 'jump' | 'greet' | 'doll' | 'interact' | 'cast_start';
 
 /** main → assistant renderer messages. */
 export interface AssistantEvents {

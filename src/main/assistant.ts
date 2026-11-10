@@ -19,39 +19,39 @@ import { captureRect } from './screenCapture';
 import { webSearch } from './webSearch';
 
 /** The assistant window's fixed size, in DIP. */
-export const ASSISTANT_SIZE = { width: 520, height: 640 } as const;
+export const ASSISTANT_SIZE = { width: 520, height: 700 } as const;
 
 /** The idle window's size: just enough for the sprite and a little breathing room. */
-const IDLE_SIZE = { width: 120, height: 140 } as const;
+const IDLE_SIZE = { width: 210, height: 220 } as const;
 
 /** How far the idle sprite sits from the display's bottom-right corner. */
 const IDLE_MARGIN = 20;
 
-/** An emote slug → the sprite action it plays. Custom/unknown emotes fall back to a friendly wave. */
-const EMOTE_ACTION: Readonly<Record<string, EmoteReaction>> = {
+/** An emote slug → the sprite actions it may play. Custom/unknown emotes fall back to a friendly wave. */
+const EMOTE_ACTION: Readonly<Record<string, readonly EmoteReaction[]>> = {
   // 赞许 / 点赞
-  gg_heart: 'celebrate', omg_love_it: 'celebrate', super_approved: 'celebrate', nice_try: 'celebrate',
-  nice: 'celebrate', scout_approved: 'celebrate', okay: 'celebrate', good_job_buddy: 'celebrate',
-  teamwork: 'celebrate',
+  gg_heart: ['greet'], omg_love_it: ['celebrate'], super_approved: ['celebrate'], nice_try: ['celebrate'],
+  nice: ['celebrate'], scout_approved: ['celebrate'], okay: ['celebrate'], good_job_buddy: ['celebrate'],
+  teamwork: ['celebrate'],
   // 大笑
-  wahaha: 'laugh', dont_make_me_laugh: 'laugh', haha_hilarious: 'laugh', laughing_out_loud: 'laugh',
+  wahaha: ['laugh'], dont_make_me_laugh: ['laugh'], haha_hilarious: ['laugh'], laughing_out_loud: ['laugh'],
   // 嘲讽 / 挑衅
-  unworthy: 'taunt', unworthy_cn: 'taunt', angry_kitty: 'taunt', bee_mad: 'taunt', unimpressed: 'taunt',
-  did_you_just: 'taunt', come_at_me: 'taunt', how_could_you: 'taunt', i_will_destroy_you: 'taunt',
-  not_today: 'taunt', such_foolishness: 'taunt',
+  unworthy: ['taunt'], unworthy_cn: ['taunt'], angry_kitty: ['cast_start'], bee_mad: ['jump'], unimpressed: ['taunt'],
+  did_you_just: ['taunt'], come_at_me: ['taunt'], how_could_you: ['taunt'], i_will_destroy_you: ['taunt'],
+  not_today: ['taunt'], such_foolishness: ['taunt'],
   // 开心 / 跳舞
-  poro_snax: 'dance', cheeky_poro: 'dance', bee_happy: 'dance',
+  poro_snax: ['celebrate'], cheeky_poro: ['interact'], bee_happy: ['dance_in', 'dance'],
   // 悲伤 / 沮丧
-  sad_kitten: 'hurt', bee_sad: 'hurt', pain: 'hurt', despair: 'hurt', maybe_next_time: 'hurt', oh: 'hurt',
+  sad_kitten: ['hurt'], bee_sad: ['hurt'], pain: ['hurt'], despair: ['hurt'], maybe_next_time: ['hurt'], oh: ['hurt'],
   // 疑惑 / 思考
-  facepalm: 'think', woah_dizzy: 'think', think_about_it: 'think', does_not_compute: 'think',
-  come_again: 'think', magpie_oopsie: 'think',
+  facepalm: ['think'], woah_dizzy: ['think'], think_about_it: ['think'], does_not_compute: ['think'],
+  come_again: ['think'], magpie_oopsie: ['think'],
   // 惊讶 / 激动
-  gasp: 'jump', poro_ride: 'jump',
+  gasp: ['jump'], poro_ride: ['jump'],
   // 友好 / 致意
-  hats_off: 'greet', call_me: 'greet',
+  hats_off: ['greet'], call_me: ['greet'],
   // 打盹 / 安静
-  snoozy_poro: 'doll',
+  snoozy_poro: ['doll'],
 };
 
 /** The reminder delays offered when saving a mark, in minutes. */
@@ -73,7 +73,7 @@ const SUMMARY_CHAR_THRESHOLD = 8000;
 const SUMMARY_KEEP_TURNS = 4;
 
 /** Where the sprite's anchor sits inside the window: the point placed on the ping. */
-const SPRITE_ANCHOR = { x: ASSISTANT_SIZE.width / 2, y: 140 };
+const SPRITE_ANCHOR = { x: ASSISTANT_SIZE.width / 2, y: 170 };
 
 /** Movement durations in ms; keep in sync with the renderer's enter-* CSS animation lengths. */
 const MOVEMENT_MS: Record<Movement, number> = { teleport: 360, jump: 610, dash: 410, fly: 510 };
@@ -133,6 +133,8 @@ export class Assistant {
   private prefetchTimer: ReturnType<typeof setTimeout> | null = null;
   /** The in-flight region grab, shared so a prefetch and a confirm don't read the screen twice. */
   private capturePromise: Promise<string | null> | null = null;
+  /** The last emote action played, so a fresh one is picked when an emote maps to several. */
+  private lastEmoteAction: EmoteReaction | null = null;
 
   constructor(
     private readonly getSettings: () => Settings,
@@ -233,7 +235,18 @@ export class Assistant {
     if (!s.assistantEnabled) return;
     const win = this.win;
     if (!win || win.isDestroyed() || !win.isVisible()) return; // only react while already on screen
-    this.send('assistant:emote', { action: EMOTE_ACTION[ref] ?? 'greet' });
+    const actions = EMOTE_ACTION[ref] ?? ['greet'];
+    this.send('assistant:emote', { action: this.pickEmote(actions) });
+  }
+
+  /** Picks one action from an emote's list, avoiding a repeat of the last one when there's a choice. */
+  private pickEmote(actions: readonly EmoteReaction[]): EmoteReaction {
+    if (actions.length <= 1) return actions[0];
+    const fresh = actions.filter((a) => a !== this.lastEmoteAction);
+    const pool = fresh.length > 0 ? fresh : [...actions];
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    this.lastEmoteAction = pick;
+    return pick;
   }
 
   /** Positions the window at the idle spot and asks the renderer for the idle sprite (no popup). */
