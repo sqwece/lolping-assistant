@@ -36,7 +36,7 @@ const EMOTE_ACTION: Readonly<Record<string, readonly EmoteReaction[]>> = {
   // 大笑
   wahaha: ['laugh'], dont_make_me_laugh: ['laugh'], haha_hilarious: ['laugh'], laughing_out_loud: ['laugh'],
   // 嘲讽 / 挑衅
-  unworthy: ['taunt'], unworthy_cn: ['taunt'], angry_kitty: ['cast_start'], bee_mad: ['jump'], unimpressed: ['taunt'],
+  unworthy: ['taunt'], unworthy_cn: ['taunt'], angry_kitty: ['cast_start'], bee_mad: ['laugh2'], unimpressed: ['taunt'],
   did_you_just: ['taunt'], come_at_me: ['taunt'], how_could_you: ['taunt'], i_will_destroy_you: ['taunt'],
   not_today: ['taunt'], such_foolishness: ['taunt'],
   // 开心 / 跳舞
