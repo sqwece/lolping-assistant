@@ -27,22 +27,22 @@ body {
 
 .sprite {
   position: absolute;
-  left: calc(50% - 45px);
-  top: 95px;
-  width: 90px;
-  height: 90px;
+  left: calc(50% - 90px);
+  top: 80px;
+  width: 180px;
+  height: 180px;
   will-change: transform, opacity;
 }
 
 #sprite-art {
-  width: 90px;
-  height: 90px;
+  width: 180px;
+  height: 180px;
   filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.35));
 }
 
 .sprite-tag {
   position: absolute;
-  top: 96px;
+  top: 86px;
   left: 50%;
   transform: translateX(-50%);
   padding: 2px 8px;
@@ -96,7 +96,7 @@ body {
 
 .popup {
   position: absolute;
-  top: 212px;
+  top: 288px;
   left: 50%;
   width: 440px;
   transform: translateX(-50%) translateY(12px);

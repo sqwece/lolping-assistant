@@ -1,6 +1,6 @@
 import type { AssistantCharacter, InteractionKind, MarkEntry, Movement } from '../../shared/assistant';
 import type { AssistantUi } from '../../shared/ipc';
-import { imageSheet, placeholderSheet, SpritePlayer } from './sprite';
+import { imageSheet, placeholderSheet, SpritePlayer, type CharacterAnimation } from './sprite';
 
 const sprite = document.getElementById('sprite') as HTMLElement;
 const spriteArt = document.getElementById('sprite-art') as HTMLCanvasElement;
@@ -91,7 +91,7 @@ function setSizeMode(mode: 'normal' | 'half' | 'full'): void {
   enlargeBtn.textContent = mode === 'normal' ? ui.enlarge : mode === 'half' ? ui.fullscreen : ui.restore;
 }
 
-const player = new SpritePlayer(spriteArt, placeholderSheet('#5b8cff', '#2f6bff'), 12);
+const player = new SpritePlayer(spriteArt, placeholderSheet('#5b8cff', '#2f6bff'), 24);
 player.start();
 
 // Chibi Gwen sprite sheet (3 gesture poses). Loaded async; the placeholder face shows until it's ready.
@@ -100,61 +100,38 @@ const gwenImage = new Image();
 gwenImage.onload = () => {
   player.setSheet(
     imageSheet(gwenImage, 256, 256, 16, {
-      idle: { first: 0, count: 16 },
-      idle_in: { first: 16, count: 12 },
-      walk: { first: 28, count: 16 },
-      run: { first: 44, count: 16 },
-      haste: { first: 60, count: 16 },
-      jump: { first: 76, count: 12 },
-      greet: { first: 88, count: 12 },
-      dive_in: { first: 100, count: 12 },
-      dive_out: { first: 112, count: 12 },
-      cast_start: { first: 124, count: 12 },
-      think: { first: 136, count: 16 },
-      interact: { first: 152, count: 12 },
-      laugh: { first: 164, count: 12 },
-      laugh2: { first: 176, count: 12 },
-      dance_in: { first: 188, count: 12 },
-      dance: { first: 200, count: 16 },
-      doll: { first: 216, count: 16 },
-      taunt: { first: 232, count: 12 },
-      hurt: { first: 244, count: 12 },
-      celebrate: { first: 256, count: 12 },
-      recall: { first: 268, count: 12 },
-      recall_out: { first: 280, count: 12 },
-      death: { first: 292, count: 12 },
-      drag: { first: 216, count: 16 },
+      idle: { first: 0, count: 38 },
+      idle_in: { first: 38, count: 23 },
+      walk: { first: 61, count: 36 },
+      run: { first: 97, count: 18 },
+      haste: { first: 115, count: 18 },
+      jump: { first: 133, count: 12 },
+      greet: { first: 145, count: 58 },
+      dive_in: { first: 203, count: 12 },
+      dive_out: { first: 215, count: 26 },
+      cast_start: { first: 241, count: 31 },
+      think: { first: 272, count: 19 },
+      interact: { first: 291, count: 44 },
+      laugh: { first: 335, count: 98 },
+      laugh2: { first: 433, count: 14 },
+      dance_in: { first: 447, count: 54 },
+      dance: { first: 501, count: 90 },
+      doll: { first: 591, count: 23 },
+      taunt: { first: 614, count: 58 },
+      hurt: { first: 672, count: 42 },
+      celebrate: { first: 714, count: 90 },
+      recall: { first: 804, count: 44 },
+      recall_out: { first: 848, count: 44 },
+      death: { first: 892, count: 87 },
+      drag: { first: 97, count: 18 },
     }),
   );
 };
 gwenImage.src = GWEN_SHEET_URL;
 
-// ---- idle variety: occasional cute actions while idle on the desktop ----
-let idleVarietyTimer: ReturnType<typeof setTimeout> | null = null;
-
-function cancelIdleVariety(): void {
-  if (idleVarietyTimer !== null) {
-    clearTimeout(idleVarietyTimer);
-    idleVarietyTimer = null;
-  }
-}
-
-function scheduleIdleVariety(): void {
-  cancelIdleVariety();
-  idleVarietyTimer = setTimeout(playIdleVariety, 12000 + Math.random() * 18000);
-}
-
-function playIdleVariety(): void {
-  const roll = Math.random();
-  if (roll < 0.3) player.playOnce('laugh', 'idle');
-  else if (roll < 0.5) player.playOnce('laugh2', 'idle');
-  else if (roll < 0.7) player.playOnce('taunt', 'idle');
-  else if (roll < 0.85) player.playOnce('doll', 'idle');
-  else {
-    player.playSequence(['dance_in'], 'dance');
-    setTimeout(() => player.playSequence(['idle_in'], 'idle'), 4000);
-  }
-  scheduleIdleVariety();
+/** Play a one-shot reaction (emote / click), then fall back to idle. */
+function playReaction(anim: CharacterAnimation): void {
+  player.playOnce(anim, 'idle');
 }
 
 // ---- usage-too-long reminder: Gwen faints to nudge a break ----
@@ -439,11 +416,10 @@ window.assistant.on('assistant:show', (p) => {
     popup.classList.add('shown');
   } else {
     sprite.style.display = '';
-    cancelIdleVariety();
     if (p.movement === 'jump') player.playOnce('jump', 'idle');
     else player.playOnce('greet', 'idle');
     void animate(`enter-${p.movement}`, MOVEMENT_MS[p.movement]).then(() => {
-      player.playSequence(['idle_in'], 'idle');
+      player.play('idle');
       popup.classList.add('shown');
     });
   }
@@ -454,7 +430,9 @@ window.assistant.on('assistant:thumbnail', (p) => {
 });
 
 window.assistant.on('assistant:emote', (p) => {
-  player.playOnce(p.action, 'idle');
+  // Dance is two moves: the entrance dance leads into the loop dance.
+  if (p.action === 'dance') player.playSequence(['dance_in', 'dance'], 'idle');
+  else playReaction(p.action);
 });
 
 window.assistant.on('assistant:answer', (p) => {
@@ -549,7 +527,6 @@ window.assistant.on('assistant:idle', (p) => {
     sprite.classList.remove(...ENTER_CLASSES);
     sprite.style.display = '';
     player.play('idle');
-    scheduleIdleVariety();
   }
 });
 
@@ -708,25 +685,42 @@ window.addEventListener('mousemove', (e) => {
   }
 });
 
-// Dragging the sprite (or the popup's drag handle) moves the whole window.
+// Pressing the sprite: a quick release (click) plays the scissors reaction; a drag moves the
+// window and plays the run animation while held.
 let dragging = false;
-function startDrag(e: MouseEvent): void {
+let pressPos: { x: number; y: number } | null = null;
+const DRAG_THRESHOLD = 4;
+
+function onSpriteDown(e: MouseEvent): void {
   if (e.button !== 0) return;
-  dragging = true;
-  player.play('drag');
-  window.assistant.drag('start');
+  dragging = false;
+  pressPos = { x: e.clientX, y: e.clientY };
 }
-sprite.addEventListener('mousedown', startDrag);
-dragHandle.addEventListener('mousedown', startDrag);
-window.addEventListener('mousemove', () => {
-  if (dragging) window.assistant.drag('move');
+sprite.addEventListener('mousedown', onSpriteDown);
+dragHandle.addEventListener('mousedown', onSpriteDown);
+window.addEventListener('mousemove', (e) => {
+  if (dragging) {
+    window.assistant.drag('move');
+    return;
+  }
+  if (!pressPos) return;
+  const dx = e.clientX - pressPos.x;
+  const dy = e.clientY - pressPos.y;
+  if (dx * dx + dy * dy >= DRAG_THRESHOLD * DRAG_THRESHOLD) {
+    dragging = true;
+    player.play('drag');
+    window.assistant.drag('start');
+  }
 });
 window.addEventListener('mouseup', () => {
   if (dragging) {
     dragging = false;
     player.play('idle');
     window.assistant.drag('end');
+  } else if (pressPos) {
+    playReaction('cast_start');
   }
+  pressPos = null;
 });
 
 applyLabels();

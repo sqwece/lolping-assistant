@@ -158,7 +158,7 @@ export class SpritePlayer {
   /** Whether the current animation is a one-shot (queue) that must advance when it ends. */
   private once = false;
 
-  constructor(private canvas: HTMLCanvasElement, private sheet: SpriteSheet, fps = 12) {
+  constructor(private canvas: HTMLCanvasElement, private sheet: SpriteSheet, fps = 24) {
     this.fps = fps;
     this.canvas.width = sheet.frameW;
     this.canvas.height = sheet.frameH;
