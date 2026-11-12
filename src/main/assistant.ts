@@ -35,12 +35,12 @@ const EMOTE_ACTION: Readonly<Record<string, readonly EmoteReaction[]>> = {
   teamwork: ['celebrate'],
   // 大笑
   wahaha: ['laugh'], dont_make_me_laugh: ['laugh'], haha_hilarious: ['laugh'], laughing_out_loud: ['laugh'],
-  // 嘲讽 / 挑衅
-  unworthy: ['taunt'], unworthy_cn: ['taunt'], angry_kitty: ['cast_start'], bee_mad: ['laugh2'], unimpressed: ['taunt'],
-  did_you_just: ['taunt'], come_at_me: ['taunt'], how_could_you: ['taunt'], i_will_destroy_you: ['taunt'],
-  not_today: ['taunt'], such_foolishness: ['taunt'],
-  // 开心 / 跳舞
-  poro_snax: ['celebrate'], cheeky_poro: ['interact'], bee_happy: ['dance_in', 'dance'],
+  // 嘲讽 / 挑衅（源 GLB 无独立 taunt 动画，taunt 槽位=greet 挥手数据，故改用 laugh 嘲笑）
+  unworthy: ['laugh'], unworthy_cn: ['laugh'], angry_kitty: ['cast_start'], bee_mad: ['laugh2'], unimpressed: ['laugh'],
+  did_you_just: ['laugh'], come_at_me: ['laugh'], how_could_you: ['laugh'], i_will_destroy_you: ['laugh'],
+  not_today: ['laugh'], such_foolishness: ['laugh'],
+  // 开心 / 跳舞（cheeky_poro 原 interact=recall 回城移动动作，改用 jump 欢快跳）
+  poro_snax: ['celebrate'], cheeky_poro: ['jump'], bee_happy: ['dance_in', 'dance'],
   // 悲伤 / 沮丧
   sad_kitten: ['hurt'], bee_sad: ['hurt'], pain: ['hurt'], despair: ['hurt'], maybe_next_time: ['hurt'], oh: ['hurt'],
   // 疑惑 / 思考
@@ -50,8 +50,8 @@ const EMOTE_ACTION: Readonly<Record<string, readonly EmoteReaction[]>> = {
   gasp: ['jump'], poro_ride: ['jump'],
   // 友好 / 致意
   hats_off: ['greet'], call_me: ['greet'],
-  // 打盹 / 安静
-  snoozy_poro: ['doll'],
+  // 打盹 / 安静（doll 是移动动作，改用 hurt）
+  snoozy_poro: ['hurt'],
 };
 
 /** The reminder delays offered when saving a mark, in minutes. */
